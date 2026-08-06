@@ -1,6 +1,12 @@
-site_name: Survey Genie (POCs only)
+site_name: Survey Genie
+site_description: JSON-configured survey prototypes using the ONS Design System
+
 nav:
   - Home: index.md
-  - Guide: guide.md
+  - Getting started: getting-started.md
+  - Environment variables: environment-variables.md
+  - Survey definitions: survey-definition.md
+  - Supported ONS components: ons-components.md
+
 theme:
   name: material

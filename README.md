@@ -1,218 +1,161 @@
 # Survey Genie
 
-A containerised Flask starter app for Cloud Run prototypes that need an ONS Design System UI and a lightweight password-gated landing page.
+Survey Genie is a lightweight Flask framework for running JSON-configured survey prototypes with the [ONS Design System](https://service-manual.ons.gov.uk/design-system).
 
-This template borrows the useful parts of `ONSdigital/theme-analysis-ui`:
+It currently supports:
 
-- Flask application factory with `template_folder="app_templates"`
-- Jinja configured with `ChainableUndefined` for ONS/Nunjucks-style templates
-- downloaded ONS Design System `components/` and `layout/` templates loaded through a Jinja `ChoiceLoader`
-- session-based login flow using Werkzeug password hashes
-- `scripts/` utilities for fetching ONS templates and provisioning users
+- an optional introduction page
+- an ordered survey journey containing question and guidance pages
+- an optional feedback journey
+- a fixed completion page
+- local-file or Google Cloud Storage password authentication
+- session-backed responses for prototype use
 
-It deliberately separates authentication into an `auth` package so the template can be reused across small services.
-
-## What this is suitable for
-
-Use this for low-risk prototypes, internal demos, and short-lived Cloud Run services where a simple password gate is enough.
-
-For production, sensitive, or externally exposed services, prefer organisation-managed authentication such as IAP, SSO, or another centrally managed identity service. This template stores password hashes only, but it is still not a replacement for enterprise identity management.
+> Survey Genie is intended for short-lived prototypes and small-scale testing. It does not currently persist survey responses to a database or provide production-grade identity management.
 
 ## Requirements
 
 - Python 3.12
 - Poetry 2.1.3
-- Docker, if building the container locally
-- Google Cloud SDK credentials, if uploading the users file to GCS
-
-## Install locally
-
-```bash
-poetry install
-```
-
-## Fetch the ONS Design System templates
-
-The ONS Design System uses Nunjucks templates. The ONS guidance for Jinja apps is to use `ChainableUndefined`, and when using the release zip, copy the `components` and `layout` folders into the Flask templates path.
-
-Run:
-
-```bash
-poetry run python scripts/fetch_ons_templates.py
-```
-
-or:
-
-```bash
-make templates
-```
-
-The script reads `.design-system-version`. By default it is set to `latest`. To pin a release, replace the file contents with a tag such as:
-
-```text
-v72.0.0
-```
-
-The downloaded folders are ignored by git:
-
-```text
-src/survey_genie/templates/components/
-src/survey_genie/templates/layout/
-```
-
-## Provision a local user file
-
-Create a local `users.json` with one or more hashed users:
-
-```bash
-poetry run python scripts/provision_users.py \
-  --user "user@example.com:change-me" \
-  --output users.json
-```
-
-You can provide `--user` more than once:
-
-```bash
-poetry run python scripts/provision_users.py \
-  --user "user1@example.com:password-one" \
-  --user "user2@example.com:password-two" \
-  --output users.json
-```
-
-If you omit `--user`, the script prompts for an email address and password.
-
-The generated file has this shape:
-
-```json
-{
-  "users": [
-    {
-      "username": "user@example.com",
-      "password_hash": "scrypt:..."  # pragma: allowlist secret
-    }
-  ]
-}
-```
+- Make
+- Docker or Podman, when running the container locally
 
 ## Run locally
 
-Create a `.env` from the example:
-
 ```bash
+git clone https://github.com/ONSdigital/survey-genie.git
+cd survey-genie
+
 cp .env.example .env
+make install
+make templates
+make provision-user
+make run
 ```
 
-For local development, keep:
+Open `http://127.0.0.1:5000` and sign in with the user created by `make provision-user`.
+
+To use a custom survey definition, set an absolute path in `.env`:
 
 ```text
-AUTH_MODE=local
-LOCAL_USERS_FILE=users.json
-SESSION_COOKIE_SECURE=false
+SURVEY_DEFINITION_FILE=/absolute/path/to/survey.json
 ```
 
-**Note:** if running in a **container locally** use the make commands and ensure ```LOCAL_USERS_FILE=/app/users.json```
-
-Then run:
+Useful Makefile targets:
 
 ```bash
-poetry run flask --app 'survey_genie.app:create_app()' run --debug --port 8000
-```
-
-Open:
-
-```text
-http://localhost:8000
-```
-
-You should be redirected to `/login`.
-
-## Use a GCS users file
-
-The app can load `users.json` from GCS when deployed to Cloud Run.
-
-First create and upload the file:
-
-```bash
-poetry run python scripts/provision_users.py \
-  --user "user@example.com:change-me" \
-  --output users.json \
-  --bucket "YOUR_AUTH_BUCKET" \
-  --blob "users.json"
-```
-
-For an encrypted auth file using a customer-managed Cloud KMS key, add:
-
-```bash
-  --kms-key-name "projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY_NAME"  # pragma: allowlist secret
-```
-
-Cloud Storage encrypts data at rest by default; using `--kms-key-name` makes the object use your customer-managed key.
-
-Set these Cloud Run environment variables:
-
-```text
-AUTH_MODE=gcs
-GCP_AUTH_BUCKET_NAME=YOUR_AUTH_BUCKET
-GCP_AUTH_BLOB_NAME=users.json
-SESSION_COOKIE_SECURE=true
-```
-
-The Cloud Run service account needs permission to read the object, for example `roles/storage.objectViewer` scoped to the bucket.
-
-## Flask secret key
-
-Set a strong `FLASK_SECRET_KEY` in local `.env` and use Secret Manager for Cloud Run rather than baking the secret into the container image.
-
-## Build and run with Docker
-
-```bash
-docker build -t survey-genie .
-docker run --rm -p 8000:8000 --env-file .env -v "$PWD/users.json:/app/users.json:ro" survey-genie
-```
-
-## Build and run with Podman
-
-```bash
+make help                 # list available targets
+make install              # install Poetry dependencies
+make templates            # download ONS Design System templates
+make provision-user       # create a local users.json
+make run                  # run Flask in debug mode
+make run-docs             # serve the MkDocs documentation
+make all-tests            # run tests with coverage
+make check-python-nofix   # run formatting, lint, type and security checks
+make docker-build
+make docker-run
 make podman-build
 make podman-run
 ```
 
-## Deploy to Cloud Run
+## Environment variables
 
-Example:
+| Variable | Required | Default | Purpose |
+|---|---:|---|---|
+| `FLASK_SECRET_KEY` | Production: yes | `dev-only-change-me` | Signs Flask sessions. Use a strong secret outside local development. |
+| `SERVICE_NAME` | No | `Survey Genie` | Service name displayed by the application. |
+| `AUTH_MODE` | No | `local` | Authentication source: `local` or `gcs`. |
+| `LOCAL_USERS_FILE` | Local auth: yes | `users.json` | Path to the local password-hash file. Use `/app/users.json` in the supplied container. |
+| `GCP_AUTH_BUCKET_NAME` | GCS auth: yes | None | Google Cloud Storage bucket containing the users file. |
+| `GCP_AUTH_BLOB_NAME` | No | `users.json` | Object name within the authentication bucket. |
+| `SESSION_COOKIE_SECURE` | No | `false` | Set to `true` when served over HTTPS. |
+| `SURVEY_DEFINITION_FILE` | No | bundled `example_survey.json` | JSON survey definition loaded and validated at application startup. |
 
-```bash
-gcloud run deploy survey-genie \
-  --source . \
-  --region europe-west2 \
-  --allow-unauthenticated \
-  --set-env-vars AUTH_MODE=gcs,GCP_AUTH_BUCKET_NAME=YOUR_AUTH_BUCKET,GCP_AUTH_BLOB_NAME=users.json,SESSION_COOKIE_SECURE=true,SERVICE_NAME="Your Service Name"
+## Survey definitions
+
+A definition uses schema version `1` and has three configurable journey sections:
+
+```json
+{
+  "schema_version": 1,
+  "survey_title": "Example survey",
+  "wave_id": "example-wave",
+  "survey_intro": {
+    "enabled": true,
+    "intro": {}
+  },
+  "survey_pages": {
+    "enabled": true,
+    "start_page_id": "q1",
+    "pages": []
+  },
+  "survey_feedback": {
+    "enabled": true,
+    "start_page_id": "f1",
+    "pages": []
+  }
+}
 ```
 
-Prefer supplying `FLASK_SECRET_KEY` from Secret Manager.
+Supported survey page types:
 
-## Routes
+- `question`
+- `guidance`
 
-| Route | Purpose |
-|---|---|
-| `/` | Protected landing page |
-| `/login` | Sign-in page |
-| `/check-login` | Login form POST endpoint |
-| `/logout` | Clears the session |
-| `/health` | Health check endpoint |
-| `/cookies` | Placeholder cookies page |
-| `/accessibility` | Placeholder accessibility statement |
-| `/privacy` | Placeholder privacy notice |
+Supported answer types for survey questions:
+
+- `radio`
+- `text`, rendered as either a single-line input or multiline textarea
+
+Supported feedback pages:
+
+- `question` pages only
+- `radio` answers, required or optional
+- `text` answers, optional only
+
+Supported introduction blocks:
+
+- `paragraph`, containing inline text and links
+- `button`, linking to a URL or survey page
+- `panel`
+- table-of-contents navigation to introduction sections
+
+See [Survey definitions](docs/survey-definition.md) for the complete supported structure and examples.
+
+## ONS Design System components
+
+Survey Genie renders the journey using these ONS Design System macros:
+
+- `onsButton`
+- `onsPanel`
+- `onsTableOfContents`
+- `onsQuestion`
+- `onsRadios`
+- `onsInput`
+- `onsTextarea`
+
+Application templates must continue to use ONS macros rather than hand-written form controls.
+
+## Documentation
+
+```bash
+make run-docs
+```
+
+The detailed documentation is under [`docs/`](docs/index.md).
+
+## Current limitations
+
+- Responses are stored in the Flask session and logged when the completion page is reached.
+- There is no database or response export.
+- Page order is linear; conditional routing is not supported.
+- Survey and feedback definitions are loaded only at application startup.
+- The completion page is currently fixed rather than JSON-configurable.
+- Authentication is suitable for prototypes, not a replacement for centrally managed SSO or IAP.
 
 ## Development checks
 
 ```bash
-make test
-make lint
+make all-tests
+make check-python-nofix
 ```
-
-## Extending the template
-
-Replace `src/survey_genie/app_templates/index.html` and add new blueprints under `src/survey_genie/routes/`.
-
-Use the `@login_required` decorator for routes that should only be available after sign-in.
