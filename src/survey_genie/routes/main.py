@@ -26,6 +26,37 @@ def _get_survey_definition() -> SurveyDefinition:
     )
 
 
+def _get_survey_start_url(
+    survey_definition: SurveyDefinition,
+) -> str | None:
+    """Return the first available URL in the configured survey journey.
+
+    Args:
+        survey_definition: Validated survey definition.
+
+    Returns:
+        str | None: Introduction or first survey-page URL, or None when
+            neither section is enabled.
+    """
+    if survey_definition["survey_intro"]["enabled"]:
+        return url_for("main.start")
+
+    survey_pages = survey_definition["survey_pages"]
+
+    if not survey_pages["enabled"]:
+        return None
+
+    start_page_id = survey_pages["start_page_id"]
+    start_page = next(page for page in survey_pages["pages"] if page["page_id"] == start_page_id)
+
+    endpoint = "survey.guidance" if start_page["page_type"] == "guidance" else "survey.question"
+
+    return url_for(
+        endpoint,
+        page_id=start_page_id,
+    )
+
+
 logger = logging.getLogger(__name__)
 
 main_blueprint = Blueprint("main", __name__)
@@ -53,7 +84,7 @@ def index() -> ResponseReturnValue:
         "index.html",
         page_title="Home",
         authenticated_user=session.get(SESSION_USER_KEY),
-        survey_start_url=survey_definition["survey_intro"]["enabled"],
+        survey_start_url=_get_survey_start_url(survey_definition),
     )
 
 

@@ -97,6 +97,16 @@ A definition uses schema version `1` and has three configurable journey sections
 }
 ```
 
+When `survey_intro.enabled` is `true`, the landing-page **Start survey**
+button opens the introduction page.
+
+When `survey_intro.enabled` is `false` and `survey_pages.enabled` is `true`,
+the button links directly to the page identified by
+`survey_pages.start_page_id`.
+
+The button is not displayed when both sections are disabled.
+
+
 Supported survey page types:
 
 - `question`

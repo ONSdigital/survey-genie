@@ -439,26 +439,6 @@
         "submit_button": {
           "text": "Save and continue"
         }
-      },
-      {
-        "page_id": "g0",
-        "page_type": "guidance",
-        "page_title": "!!! Design Note - Not for public test !!!",
-        "guidance_overview": "The user may see two extra questions posed by Survey Assist at this point.",
-        "guidance_subsection": "The questions will not be shown if the industry can be classified automatically from the answers already provided.",
-        "continue_button": {
-          "text": "Continue"
-        }
-      },
-      {
-        "page_id": "g2",
-        "page_type": "guidance",
-        "page_title": "Survey Feedback",
-        "guidance_overview": "Thank you, that concludes the survey section for this public test.",
-        "guidance_subsection": "Please answer four short questions to provide feedback and be entered into the prize draw.",
-        "continue_button": {
-          "text": "Continue"
-        }
       }
     ]
   },
