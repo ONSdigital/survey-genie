@@ -1,0 +1,318 @@
+"""Shared pytest fixtures for the Survey Genie UI."""
+
+from collections.abc import Iterator
+
+from flask import Flask
+from flask.testing import FlaskClient
+import pytest
+
+from survey_genie.app import create_app
+from survey_genie.auth.service import AuthService, AuthStore
+from survey_genie.config import Settings
+from survey_genie.survey.models import (
+    GuidancePage,
+    QuestionPage,
+    SurveyDefinition,
+    SurveyFeedback,
+)
+
+
+class StaticAuthStore(AuthStore):  # pylint: disable=too-few-public-methods
+    """Provide a fixed set of authentication users for tests."""
+
+    def __init__(self, users: dict[str, str] | None = None) -> None:
+        """Initialise the test authentication store.
+
+        Args:
+            users: Optional mapping of usernames to password hashes.
+        """
+        self.users = users or {}
+
+    def load_users(self) -> dict[str, str]:
+        """Return the configured users.
+
+        Returns:
+            dict[str, str]: Configured username and password hash mapping.
+        """
+        return self.users
+
+
+@pytest.fixture(name="survey_definition")
+def survey_definition_fixture() -> SurveyDefinition:
+    """Provide a valid two-question survey definition.
+
+    Returns:
+        SurveyDefinition: Survey containing one radio and one text question.
+    """
+    return {
+        "schema_version": 1,
+        "survey_title": "Test survey",
+        "wave_id": "test-wave",
+        "survey_intro": {
+            "enabled": True,
+            "intro": {
+                "navigation": {
+                    "header": "In this section",
+                    "aria_label": "Sections in this page",
+                    "entries": [
+                        {
+                            "link": "#begin-study",
+                            "text": "Begin study",
+                        }
+                    ],
+                },
+                "sections": [
+                    {
+                        "id": "begin-study",
+                        "heading": "Begin study",
+                        "blocks": [],
+                    }
+                ],
+            },
+        },
+        "survey_pages": {
+            "enabled": True,
+            "start_page_id": "q0",
+            "pages": [
+                {
+                    "page_id": "q0",
+                    "page_type": "question",
+                    "page_title": "Age Range",
+                    "question_name": "age_range_question",
+                    "question": {
+                        "text": "Select your age range from the options below",
+                    },
+                    "answer": {
+                        "type": "radio",
+                        "name": "age-range",
+                        "required": True,
+                        "options": [
+                            {
+                                "id": "age-range-16-24",
+                                "label": "16-24",
+                                "value": "16-24",
+                            },
+                            {
+                                "id": "age-range-25-34",
+                                "label": "25-34",
+                                "value": "25-34",
+                            },
+                        ],
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
+                {
+                    "page_id": "q1",
+                    "page_type": "question",
+                    "page_title": "Job Title",
+                    "question_name": "job_title_question",
+                    "question": {
+                        "text": ("What is the exact job title for your main " "job or business?"),
+                    },
+                    "answer": {
+                        "type": "text",
+                        "name": "job-title",
+                        "required": True,
+                        "multiline": True,
+                        "rows": 5,
+                        "character_limit": 150,
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
+                {
+                    "page_id": "q2",
+                    "page_type": "question",
+                    "page_title": "Job Description",
+                    "question_name": "job_description_question",
+                    "question": {
+                        "text": (
+                            "Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"
+                        ),
+                        "placeholders": [
+                            {
+                                "placeholder": "PLACEHOLDER_TEXT",
+                                "source_question_name": "job_title_question",
+                            }
+                        ],
+                    },
+                    "answer": {
+                        "type": "text",
+                        "name": "job-description",
+                        "required": True,
+                        "multiline": True,
+                        "rows": 8,
+                        "character_limit": 500,
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
+            ],
+        },
+    }
+
+
+@pytest.fixture(name="question_page")
+def question_page_fixture() -> QuestionPage:
+    """Provide a question page containing a response placeholder.
+
+    Returns:
+        QuestionPage: Job-description question referencing the job-title
+            response.
+    """
+    return {
+        "page_id": "q2",
+        "page_type": "question",
+        "page_title": "Job Description",
+        "question_name": "job_description_question",
+        "question": {
+            "text": ("Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"),
+            "placeholders": [
+                {
+                    "placeholder": "PLACEHOLDER_TEXT",
+                    "source_question_name": "job_title_question",
+                }
+            ],
+        },
+        "answer": {
+            "type": "text",
+            "name": "job-description",
+            "required": True,
+            "multiline": True,
+            "rows": 8,
+            "character_limit": 500,
+        },
+        "submit_button": {
+            "text": "Save and continue",
+        },
+    }
+
+
+@pytest.fixture(name="survey_feedback")
+def survey_feedback_fixture() -> SurveyFeedback:
+    """Provide a valid two-page feedback journey.
+
+    Returns:
+        SurveyFeedback: Radio and optional text feedback pages.
+    """
+    return {
+        "enabled": True,
+        "start_page_id": "fq1",
+        "pages": [
+            {
+                "page_id": "fq1",
+                "page_type": "question",
+                "page_title": "Survey Ease",
+                "question_name": "survey_ease_question",
+                "question": {
+                    "text": ("In general, how easy or difficult " "did you find this survey?"),
+                },
+                "answer": {
+                    "type": "radio",
+                    "name": "survey-ease",
+                    "required": True,
+                    "options": [
+                        {
+                            "id": "survey-ease-easy",
+                            "label": "Easy",
+                            "value": "easy",
+                        },
+                        {
+                            "id": "survey-ease-difficult",
+                            "label": "Difficult",
+                            "value": "difficult",
+                        },
+                    ],
+                },
+                "submit_button": {
+                    "text": "Save and continue",
+                },
+            },
+            {
+                "page_id": "fq2",
+                "page_type": "question",
+                "page_title": "Other Feedback",
+                "question_name": "other_feedback_question",
+                "question": {
+                    "text": ("Do you have any other feedback " "about this survey?"),
+                },
+                "answer": {
+                    "type": "text",
+                    "name": "other-feedback",
+                    "required": False,
+                    "multiline": True,
+                    "rows": 5,
+                    "character_limit": 500,
+                },
+                "submit_button": {
+                    "text": "Submit feedback",
+                },
+            },
+        ],
+    }
+
+
+@pytest.fixture(name="guidance_page")
+def guidance_page_fixture() -> GuidancePage:
+    """Provide a configured guidance page.
+
+    Returns:
+        GuidancePage: Guidance displayed between survey questions.
+    """
+    return {
+        "page_id": "g1",
+        "page_type": "guidance",
+        "page_title": "Describing your work",
+        "guidance_overview": ("The next questions ask about your main job or business."),
+        "guidance_subsection": ("Give the job title and describe the work you usually do."),
+        "continue_button": {
+            "text": "Continue",
+        },
+    }
+
+
+@pytest.fixture(name="app")
+def app_fixture(
+    survey_definition: SurveyDefinition,
+) -> Flask:
+    """Create a configured Flask application for tests.
+
+    Args:
+        survey_definition: Survey definition used by route tests.
+
+    Returns:
+        Flask: Test application instance.
+    """
+    settings = Settings(
+        secret_key="test-secret-key",  # pragma: allowlist secret
+        service_name="Survey Genie",
+        auth_mode="local",
+        session_cookie_secure=False,
+    )
+
+    application = create_app(
+        settings=settings,
+        auth_service=AuthService(StaticAuthStore()),
+        survey_definition=survey_definition,
+    )
+    application.config.update(TESTING=True)
+
+    return application
+
+
+@pytest.fixture(name="client")
+def client_fixture(app: Flask) -> Iterator[FlaskClient]:
+    """Create a Flask test client.
+
+    Args:
+        app: Configured Flask application.
+
+    Yields:
+        FlaskClient: Client for making test HTTP requests.
+    """
+    with app.test_client() as test_client:
+        yield test_client

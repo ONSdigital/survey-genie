@@ -1,4 +1,4 @@
-# ONS Flask Auth Template
+# Survey Genie
 
 A containerised Flask starter app for Cloud Run prototypes that need an ONS Design System UI and a lightweight password-gated landing page.
 

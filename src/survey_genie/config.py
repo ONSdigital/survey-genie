@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
+
+_DEFAULT_SURVEY_DEFINITION = Path(__file__).parent / "survey_definitions" / "example_survey.json"
 
 
 @dataclass(frozen=True)
-class Settings:
+class Settings:  # pylint: disable=too-many-instance-attributes
     """Runtime settings loaded from environment variables.
 
     Attributes:
@@ -18,15 +21,17 @@ class Settings:
         gcp_auth_bucket_name: Optional GCS bucket name for users JSON.
         gcp_auth_blob_name: Blob name within the configured bucket.
         session_cookie_secure: Whether session cookies are HTTPS-only.
+        survey_definition_file: JSON survey definition loaded at startup.
     """
 
     secret_key: str
-    service_name: str = "ONS Flask Auth Template"
+    service_name: str = "Survey Genie"
     auth_mode: str = "local"
     local_users_file: str = "users.json"
     gcp_auth_bucket_name: str | None = None
     gcp_auth_blob_name: str = "users.json"
     session_cookie_secure: bool = False
+    survey_definition_file: str = str(_DEFAULT_SURVEY_DEFINITION)
 
 
 def _bool_from_env(name: str, default: bool = False) -> bool:
@@ -53,10 +58,14 @@ def load_settings() -> Settings:
     """
     return Settings(
         secret_key=os.getenv("FLASK_SECRET_KEY", "dev-only-change-me"),
-        service_name=os.getenv("SERVICE_NAME", "ONS Flask Auth Template"),
+        service_name=os.getenv("SERVICE_NAME", "Survey Genie"),
         auth_mode=os.getenv("AUTH_MODE", "local").strip().lower(),
         local_users_file=os.getenv("LOCAL_USERS_FILE", "users.json"),
         gcp_auth_bucket_name=os.getenv("GCP_AUTH_BUCKET_NAME"),
         gcp_auth_blob_name=os.getenv("GCP_AUTH_BLOB_NAME", "users.json"),
         session_cookie_secure=_bool_from_env("SESSION_COOKIE_SECURE", False),
+        survey_definition_file=os.getenv(
+            "SURVEY_DEFINITION_FILE",
+            str(_DEFAULT_SURVEY_DEFINITION),
+        ),
     )

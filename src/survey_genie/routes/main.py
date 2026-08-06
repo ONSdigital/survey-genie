@@ -2,10 +2,31 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, render_template, session
+from http import HTTPStatus
+import logging
+from typing import cast
+
+from flask import Blueprint, abort, current_app, render_template, session, url_for
 from flask.typing import ResponseReturnValue
 
 from survey_genie.auth.decorators import SESSION_USER_KEY, login_required
+from survey_genie.survey.models import SurveyDefinition
+from survey_genie.survey.session import clear_survey_session_data
+
+
+def _get_survey_definition() -> SurveyDefinition:
+    """Return the survey definition loaded during application startup.
+
+    Returns:
+        SurveyDefinition: Configured survey definition.
+    """
+    return cast(
+        SurveyDefinition,
+        current_app.extensions["survey_definition"],
+    )
+
+
+logger = logging.getLogger(__name__)
 
 main_blueprint = Blueprint("main", __name__)
 
@@ -18,9 +39,72 @@ def index() -> ResponseReturnValue:
     Returns:
         ResponseReturnValue: Home page template response.
     """
+    removed_keys = clear_survey_session_data()
+
+    if removed_keys:
+        logger.info(
+            "Cleared survey session data keys=%s",
+            sorted(removed_keys),
+        )
+
+    survey_definition = _get_survey_definition()
+
     return render_template(
         "index.html",
         page_title="Home",
+        authenticated_user=session.get(SESSION_USER_KEY),
+        survey_start_url=survey_definition["survey_intro"]["enabled"],
+    )
+
+
+@main_blueprint.get("/start")
+@login_required
+def start() -> ResponseReturnValue:
+    """Render the configured survey introduction page.
+
+    Returns:
+        ResponseReturnValue: Survey introduction template response.
+
+    Raises:
+        NotFound: If the survey introduction is disabled.
+    """
+    survey_definition = _get_survey_definition()
+    survey_intro = survey_definition["survey_intro"]
+
+    if not survey_intro["enabled"]:
+        abort(HTTPStatus.NOT_FOUND)
+
+    intro = survey_intro.get("intro")
+    if intro is None:
+        logger.error(
+            "Enabled survey introduction has no content",
+            extra={"wave_id": survey_definition["wave_id"]},
+        )
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    navigation_items = [
+        {
+            "url": entry["link"],
+            "text": entry["text"],
+        }
+        for entry in intro["navigation"]["entries"]
+    ]
+
+    survey_page_urls = {
+        page["page_id"]: url_for(
+            ("survey.guidance" if page["page_type"] == "guidance" else "survey.question"),
+            page_id=page["page_id"],
+        )
+        for page in survey_definition["survey_pages"]["pages"]
+    }
+
+    return render_template(
+        "survey_intro.html",
+        page_title=survey_definition["survey_title"],
+        survey=survey_definition,
+        intro=intro,
+        navigation_items=navigation_items,
+        survey_page_urls=survey_page_urls,
         authenticated_user=session.get(SESSION_USER_KEY),
     )
 
