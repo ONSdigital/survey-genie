@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for contributing to ONS Flask Auth Template.
+Thank you for contributing to Survey Genie.
 
 This document describes the recommended development workflow, coding standards, commit conventions, testing requirements, and pull request process.
 

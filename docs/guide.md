@@ -1,4 +1,4 @@
-# ONS Flask Auth Template (POCs only) Guide
+# Survey Genie (POCs only) Guide
 
 ## Overview
 

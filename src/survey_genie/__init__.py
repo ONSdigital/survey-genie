@@ -1,1 +1,1 @@
-"""ONS Flask auth template package."""
+"""Survey Genie package."""

@@ -19,11 +19,22 @@
             "variant": "success"
         }) %}
             <p>
-                Replace this page with your service-specific journey. The authentication flow,
-                ONS Design System template loading, and Cloud Run-ready container are already in place.
+                This solution is for short-lived, small scale testing of surveys. It is not intended for production use.
             </p>
         {% endcall %}
     </div>
+
+    {% if survey_start_url %}
+
+            {{
+                onsButton({
+                    "text": "Start survey",
+                    "url": url_for("main.start"),
+                })
+            }}
+            <br>
+            <br>
+    {% endif %}
 
     {{
         onsButton({

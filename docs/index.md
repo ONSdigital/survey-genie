@@ -1,4 +1,4 @@
-# ONS Flask Auth Template (POCs only)
+# Survey Genie (POCs only)
 
 ## Key Features
 
