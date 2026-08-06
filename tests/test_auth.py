@@ -7,8 +7,8 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
-from ons_flask_auth_template.app import create_app
-from ons_flask_auth_template.config import Settings
+from survey_genie.app import create_app
+from survey_genie.config import Settings
 
 
 def test_protected_index_redirects_to_login(tmp_path: Path) -> None:

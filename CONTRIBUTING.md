@@ -20,8 +20,8 @@ Before contributing, ensure the following software is installed:
 ### Clone the Repository
 
 ```shell
-git clone https://github.com/ONSdigital/ons-flask-auth-template.git
-cd ons-flask-auth-template
+git clone https://github.com/ONSdigital/survey-genie.git
+cd survey-genie
 ```
 
 ### Install Dependencies
