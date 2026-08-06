@@ -56,8 +56,8 @@ v72.0.0
 The downloaded folders are ignored by git:
 
 ```text
-src/ons_flask_auth_template/templates/components/
-src/ons_flask_auth_template/templates/layout/
+src/survey_genie/templates/components/
+src/survey_genie/templates/layout/
 ```
 
 ## Provision a local user file
@@ -115,7 +115,7 @@ SESSION_COOKIE_SECURE=false
 Then run:
 
 ```bash
-poetry run flask --app 'ons_flask_auth_template.app:create_app()' run --debug --port 8000
+poetry run flask --app 'survey_genie.app:create_app()' run --debug --port 8000
 ```
 
 Open:
@@ -166,8 +166,8 @@ Set a strong `FLASK_SECRET_KEY` in local `.env` and use Secret Manager for Cloud
 ## Build and run with Docker
 
 ```bash
-docker build -t ons-flask-auth-template .
-docker run --rm -p 8000:8000 --env-file .env -v "$PWD/users.json:/app/users.json:ro" ons-flask-auth-template
+docker build -t survey-genie .
+docker run --rm -p 8000:8000 --env-file .env -v "$PWD/users.json:/app/users.json:ro" survey-genie
 ```
 
 ## Build and run with Podman
@@ -182,7 +182,7 @@ make podman-run
 Example:
 
 ```bash
-gcloud run deploy ons-flask-auth-template \
+gcloud run deploy survey-genie \
   --source . \
   --region europe-west2 \
   --allow-unauthenticated \
@@ -213,6 +213,6 @@ make lint
 
 ## Extending the template
 
-Replace `src/ons_flask_auth_template/app_templates/index.html` and add new blueprints under `src/ons_flask_auth_template/routes/`.
+Replace `src/survey_genie/app_templates/index.html` and add new blueprints under `src/survey_genie/routes/`.
 
 Use the `@login_required` decorator for routes that should only be available after sign-in.
