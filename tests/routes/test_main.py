@@ -108,16 +108,32 @@ def test_start_returns_not_found_when_intro_is_disabled(
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_index_hides_start_button_when_intro_is_disabled(
+def test_index_links_to_intro_when_intro_is_enabled(
+    client: FlaskClient,
+) -> None:
+    """Test that an enabled introduction remains the first journey page."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get("/")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Start survey" in response_text
+    assert 'href="/start"' in response_text
+
+
+def test_index_hides_start_button_when_survey_journey_is_disabled(
     app: Flask,
     client: FlaskClient,
 ) -> None:
-    """Test that the landing page hides the disabled introduction."""
+    """Test that no start button is shown without an available journey."""
     survey_definition = cast(
         SurveyDefinition,
         app.extensions["survey_definition"],
     )
     survey_definition["survey_intro"]["enabled"] = False
+    survey_definition["survey_pages"]["enabled"] = False
 
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
@@ -126,3 +142,39 @@ def test_index_hides_start_button_when_intro_is_disabled(
 
     assert response.status_code == HTTPStatus.OK
     assert "Start survey" not in response.get_data(as_text=True)
+
+
+def test_index_links_to_starting_guidance_page_when_intro_is_disabled(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that a guidance page can start a survey without an introduction."""
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_intro"]["enabled"] = False
+    survey_definition["survey_pages"]["start_page_id"] = "guidance"
+    survey_definition["survey_pages"]["pages"].insert(
+        0,
+        {
+            "page_id": "guidance",
+            "page_type": "guidance",
+            "page_title": "Before you begin",
+            "guidance_overview": "Read this information before answering.",
+            "guidance_subsection": "Your answers should relate to your main job.",
+            "continue_button": {
+                "text": "Continue",
+            },
+        },
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get("/")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Start survey" in response_text
+    assert 'href="/start/guidance/guidance"' in response_text

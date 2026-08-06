@@ -299,6 +299,18 @@ Blank optional feedback responses are not retained.
 
 ## Journey and response behaviour
 
+The landing-page **Start survey** button selects the first available journey
+step:
+
+1. The introduction page when `survey_intro.enabled` is `true`.
+2. The question or guidance page identified by
+   `survey_pages.start_page_id` when the introduction is disabled and
+   `survey_pages.enabled` is `true`.
+3. No button when both sections are disabled.
+
+An enabled survey section must contain at least one page, and
+`start_page_id` must match a configured page.
+
 Routes are implemented in `src/survey_genie/routes/survey.py`:
 
 - `/start/questions/<page_id>`
