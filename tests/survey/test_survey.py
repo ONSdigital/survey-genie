@@ -453,3 +453,138 @@ def test_final_guidance_links_to_completion(
 
     assert response.status_code == HTTPStatus.OK
     assert "/start/complete" in response_text
+
+
+def test_radio_response_routes_to_target_question(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that a radio option can skip to a later question."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    first_page = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    answer = cast(
+        dict[str, object],
+        first_page["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[0]["target_page_id"] = "q2"
+
+    response = client.post(
+        "/start/questions/q0",
+        data={"age-range": "16-24"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/questions/q2")
+
+
+def test_radio_response_routes_to_target_guidance(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that a radio option can skip to later guidance."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    pages = survey_definition["survey_pages"]["pages"]
+    pages.insert(2, guidance_page)
+
+    first_page = cast(
+        dict[str, object],
+        pages[0],
+    )
+    answer = cast(
+        dict[str, object],
+        first_page["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[1]["target_page_id"] = "g1"
+
+    response = client.post(
+        "/start/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/guidance/g1")
+
+
+def test_feedback_radio_routes_to_target_question(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that feedback radio routing skips intermediate feedback."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+
+    first_feedback_page = survey_feedback["pages"][0]
+    first_answer = cast(
+        dict[str, object],
+        first_feedback_page["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        first_answer["options"],
+    )
+    options[0]["target_page_id"] = "fq3"
+
+    survey_feedback["pages"].append(
+        {
+            "page_id": "fq3",
+            "page_type": "question",
+            "page_title": "Final feedback",
+            "question_name": "final_feedback_question",
+            "question": {
+                "text": "Would you use this survey again?",
+            },
+            "answer": {
+                "type": "radio",
+                "name": "use-again",
+                "required": True,
+                "options": [
+                    {
+                        "id": "use-again-yes",
+                        "label": "Yes",
+                        "value": "yes",
+                    },
+                    {
+                        "id": "use-again-no",
+                        "label": "No",
+                        "value": "no",
+                    },
+                ],
+            },
+            "submit_button": {
+                "text": "Submit feedback",
+            },
+        }
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.post(
+        "/start/feedback/fq1",
+        data={"survey-ease": "easy"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/feedback/fq3")

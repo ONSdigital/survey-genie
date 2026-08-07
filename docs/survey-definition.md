@@ -161,7 +161,8 @@ Supported panel variants are:
       {
         "id": "employment-status-no",
         "label": "No",
-        "value": "no"
+        "value": "no",
+        "target_page_id": "g2"
       }
     ]
   },
@@ -172,6 +173,19 @@ Supported panel variants are:
 ```
 
 Radio option IDs and values must be unique within the question.
+
+A radio option may define an optional `target_page_id`. When that option is
+selected, the journey continues at the target rather than at the next page in
+array order.
+
+The target:
+
+- must be in the same section as the radio question
+- must appear later in that section's `pages` array
+- may identify either a question or guidance page in `survey_pages`
+- may identify a later feedback question in `survey_feedback`
+
+Options without `target_page_id` continue to the next configured page.
 
 ### Text question
 
@@ -318,6 +332,8 @@ Routes are implemented in `src/survey_genie/routes/survey.py`:
 - `/start/feedback/<page_id>`
 - `/start/complete`
 
-Pages run in array order. There is no conditional routing.
+Pages normally run in array order. Radio options may skip forwards by defining
+`target_page_id`. Routing cannot move backwards or cross between
+`survey_pages` and `survey_feedback`.
 
 Survey and feedback responses are stored separately in the Flask session. The `complete()` route logs both collections with the configured `wave_id`; it does not save them to persistent storage.
