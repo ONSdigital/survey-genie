@@ -526,6 +526,7 @@ def previous_question(page_id: str) -> ResponseReturnValue:
         SurveyResponses,
         session.get(SURVEY_RESPONSES_KEY, {}),
     )
+
     previous_page_id = _get_previous_response_page_id(
         page_id,
         responses,
@@ -565,6 +566,17 @@ def save_response(page_id: str) -> ResponseReturnValue:
         session.get(SURVEY_RESPONSES_KEY, {}),
     )
 
+    # Get the previous page in case the user wants to go back
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+    previous_url = (
+        url_for("survey.previous_question", page_id=page_id)
+        if previous_page_id is not None
+        else None
+    )
+
     try:
         question_text = _resolve_page_question_text(
             page,
@@ -601,6 +613,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 saved_value=value,
                 not_listed_selected=not_listed_selected,
                 form_action=url_for("survey.save_response", page_id=page_id),
+                previous_url=previous_url,
                 error_message="Enter an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -732,6 +745,25 @@ def save_feedback_response(
     """
     page = _get_feedback_page(page_id)
     answer = page["answer"]
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        ),
+    )
+
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+    previous_url = (
+        url_for("survey.previous_feedback_question", page_id=page_id)
+        if previous_page_id is not None
+        else None
+    )
+
     value = request.form.get(
         answer["name"],
         "",
@@ -748,6 +780,7 @@ def save_feedback_response(
                     "survey.save_feedback_response",
                     page_id=page_id,
                 ),
+                previous_url=previous_url,
                 error_message="Select an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -759,13 +792,6 @@ def save_feedback_response(
         if value not in allowed_values:
             abort(HTTPStatus.BAD_REQUEST)
 
-    responses = cast(
-        FeedbackResponses,
-        session.get(
-            SURVEY_FEEDBACK_RESPONSES_KEY,
-            {},
-        ),
-    )
     updated_responses = dict(responses)
 
     if value:
