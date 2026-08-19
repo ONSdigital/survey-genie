@@ -37,6 +37,11 @@ def create_app(
     Raises:
         RuntimeError: If the configured survey definition cannot be loaded.
     """
+    logging.basicConfig(
+        level=logging.DEBUG,
+        force=True,
+    )
+
     resolved_settings = settings or load_settings()
     resolved_definition = survey_definition
 
