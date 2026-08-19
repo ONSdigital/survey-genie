@@ -42,7 +42,6 @@ NOT_LISTED_FIELD_SUFFIX = "-not-listed"
 NOT_LISTED_VALUE = "not-listed"
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 survey_blueprint = Blueprint(
     "survey",
@@ -372,6 +371,35 @@ def _get_next_survey_url(
     return url_for("survey.complete")
 
 
+def _get_previous_url(
+    page_id: str,
+    responses: SurveyResponses | FeedbackResponses,
+    endpoint: str,
+) -> str | None:
+    """Return the previous navigation URL when a prior response exists.
+
+    Args:
+        page_id: Current question page identifier.
+        responses: Responses stored for the current journey.
+        endpoint: Flask endpoint used for previous navigation.
+
+    Returns:
+        str | None: Previous navigation URL, or None for the first question.
+    """
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        return None
+
+    return url_for(
+        endpoint,
+        page_id=page_id,
+    )
+
+
 def _get_feedback_page(page_id: str) -> FeedbackPage:
     """Return a feedback page by identifier.
 
@@ -462,14 +490,10 @@ def question(page_id: str) -> ResponseReturnValue:
     )
 
     # Get the previous page in case the user wants to go back
-    previous_page_id = _get_previous_response_page_id(
+    previous_url = _get_previous_url(
         page_id,
         responses,
-    )
-    previous_url = (
-        url_for("survey.previous_question", page_id=page_id)
-        if previous_page_id is not None
-        else None
+        "survey.previous_question",
     )
 
     logger.info("question previous_url: %s", previous_url)
@@ -567,14 +591,10 @@ def save_response(page_id: str) -> ResponseReturnValue:
     )
 
     # Get the previous page in case the user wants to go back
-    previous_page_id = _get_previous_response_page_id(
+    previous_url = _get_previous_url(
         page_id,
         responses,
-    )
-    previous_url = (
-        url_for("survey.previous_question", page_id=page_id)
-        if previous_page_id is not None
-        else None
+        "survey.previous_question",
     )
 
     try:
@@ -669,14 +689,10 @@ def feedback_question(
     )
 
     # Get the previous page in case the user wants to go back
-    previous_page_id = _get_previous_response_page_id(
+    previous_url = _get_previous_url(
         page_id,
         responses,
-    )
-    previous_url = (
-        url_for("survey.previous_feedback_question", page_id=page_id)
-        if previous_page_id is not None
-        else None
+        "survey.previous_feedback_question",
     )
 
     logger.info("feedback previous_url: %s", previous_url)
@@ -754,14 +770,10 @@ def save_feedback_response(
         ),
     )
 
-    previous_page_id = _get_previous_response_page_id(
+    previous_url = _get_previous_url(
         page_id,
         responses,
-    )
-    previous_url = (
-        url_for("survey.previous_feedback_question", page_id=page_id)
-        if previous_page_id is not None
-        else None
+        "survey.previous_feedback_question",
     )
 
     value = request.form.get(
