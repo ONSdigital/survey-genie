@@ -482,7 +482,7 @@ def question(page_id: str) -> ResponseReturnValue:
     Returns:
         ResponseReturnValue: Rendered ONS question page.
     """
-    logger.info("Rendering question page_id=%s", page_id)
+    logger.debug("Rendering question page_id=%s", page_id)
     page = _get_question_page(page_id)
     responses = cast(
         SurveyResponses,
