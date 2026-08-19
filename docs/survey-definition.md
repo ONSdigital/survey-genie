@@ -199,6 +199,10 @@ A text answer is rendered with `onsInput` unless `multiline` is `true`, when it 
   "question_name": "job_title",
   "question": {
     "text": "What is your job title?",
+    "definition": {
+      "title": "What we mean by job",
+      "content": "A job is paid employment or self-employment."
+    },
     "guidance": {
       "content": "Use the title shown on your contract."
     },
@@ -210,6 +214,7 @@ A text answer is rendered with `onsInput` unless `multiline` is `true`, when it 
   "answer": {
     "type": "text",
     "name": "job-title",
+    "label": "Job title",
     "required": true,
     "multiline": false,
     "character_limit": 150,
@@ -221,12 +226,25 @@ A text answer is rendered with `onsInput` unless `multiline` is `true`, when it 
 }
 ```
 
-For multiline text:
+`definition` is optional. When supplied, it is passed to the ONS question
+component and displayed as supporting definition content.
+
+A definition contains:
+
+- `title` - the definition heading
+- `content` - the definition content
+
+
+`label` is optional for text answers. When supplied, it is displayed as the
+label for the `onsInput` or `onsTextarea` component.
+
+The same property is supported for multiline answers:
 
 ```json
 {
   "type": "text",
   "name": "job-description",
+  "label": "Job description",
   "required": true,
   "multiline": true,
   "rows": 8,

@@ -87,13 +87,16 @@ def create_app(
     app.register_blueprint(survey_blueprint)
 
     @app.context_processor
-    def inject_settings() -> dict[str, Settings]:
-        """Expose settings within templates.
+    def inject_template_context() -> dict[str, Settings | str]:
+        """Expose application configuration within templates.
 
         Returns:
-            Template context containing the resolved settings.
+            Template context containing application configuration.
         """
-        return {"settings": resolved_settings}
+        return {
+            "settings": resolved_settings,
+            "service_name": resolved_definition["survey_title"],
+        }
 
     logger.info(
         "Created Survey Genie application with auth_mode=%s",

@@ -21,6 +21,12 @@
             "legendIsQuestionTitle": true
         } %}
 
+        {% if page.question.definition %}
+            {% set _ = question_options.update({
+                "definition": page.question.definition
+            }) %}
+        {% endif %}
+
         {% if page.question.guidance %}
             {% set _ = question_options.update({
                 "guidance": {
@@ -53,6 +59,8 @@
                     "required": true
                 }) %}
             {% endif %}
+
+            {% set text_label = page.answer.label | default("") %}
 
             {% if page.answer.type == "radio" %}
                 {% set radio_options = [] %}
@@ -92,6 +100,9 @@
                         "attributes": text_attributes,
                         "charCheckLimit": {
                             "limit": page.answer.character_limit
+                        },
+                        "label": {
+                            "text": text_label
                         }
                     })
                 }}
@@ -103,7 +114,10 @@
                         "name": page.answer.name,
                         "type": "text",
                         "value": saved_value,
-                        "attributes": text_attributes
+                        "attributes": text_attributes,
+                        "label": {
+                            "text": text_label
+                        }
                     })
                 }}
             {% endif %}

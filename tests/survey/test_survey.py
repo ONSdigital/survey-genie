@@ -5,6 +5,7 @@ from typing import cast
 
 from flask import Flask
 from flask.testing import FlaskClient
+import pytest
 
 from survey_genie.auth.decorators import SESSION_USER_KEY
 from survey_genie.routes.survey import SURVEY_RESPONSES_KEY
@@ -588,3 +589,61 @@ def test_feedback_radio_routes_to_target_question(
 
     assert response.status_code == HTTPStatus.FOUND
     assert response.headers["Location"].endswith("/start/feedback/fq3")
+
+
+def test_question_renders_definition(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that a configured question definition is rendered."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    question = survey_definition["survey_pages"]["pages"][1]["question"]
+    question["definition"] = {
+        "title": "What we mean by job",
+        "content": "A job is paid employment or self-employment.",
+    }
+
+    response = client.get("/start/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "What we mean by job" in response_text
+    assert "A job is paid employment or self-employment." in response_text
+
+
+@pytest.mark.parametrize(
+    "multiline",
+    [
+        True,
+        False,
+    ],
+)
+def test_text_question_renders_answer_label(
+    app: Flask,
+    client: FlaskClient,
+    multiline: bool,
+) -> None:
+    """Test that text answer labels render for input and textarea components."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    answer = survey_definition["survey_pages"]["pages"][1]["answer"]
+
+    assert answer["type"] == "text"
+
+    answer["label"] = "Job title"
+    answer["multiline"] = multiline
+
+    response = client.get("/start/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Job title" in response_text

@@ -585,3 +585,50 @@ def test_load_survey_definition_accepts_feedback_radio_target(
     loaded_feedback = loaded_definition["survey_feedback"]
     assert loaded_feedback["pages"][0]["answer"]["type"] == "radio"
     assert loaded_feedback["pages"][0]["answer"]["options"][1]["target_page_id"] == "fq2"
+
+
+def test_load_survey_definition_accepts_question_definition(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that an optional question definition is loaded."""
+    question = survey_definition["survey_pages"]["pages"][1]["question"]
+    question["definition"] = {
+        "title": "What we mean by job",
+        "content": "A job is paid employment or self-employment.",
+    }
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+    loaded_question = loaded_definition["survey_pages"]["pages"][1]["question"]
+
+    assert loaded_question["definition"] == {
+        "title": "What we mean by job",
+        "content": "A job is paid employment or self-employment.",
+    }
+
+
+def test_load_survey_definition_accepts_text_answer_label(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that an optional text answer label is loaded."""
+    answer = survey_definition["survey_pages"]["pages"][1]["answer"]
+
+    assert answer["type"] == "text"
+    answer["label"] = "Job title"
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+    loaded_answer = loaded_definition["survey_pages"]["pages"][1]["answer"]
+
+    assert loaded_answer["type"] == "text"
+    assert loaded_answer["label"] == "Job title"

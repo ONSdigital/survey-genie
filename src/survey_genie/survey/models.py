@@ -115,6 +115,7 @@ class TextAnswer(TypedDict):
     type: Literal["text"]
     name: str
     required: bool
+    label: NotRequired[str]
     multiline: NotRequired[bool]
     rows: NotRequired[int]
     character_limit: NotRequired[int]
@@ -127,6 +128,13 @@ QuestionAnswer = RadioAnswer | TextAnswer
 class QuestionGuidance(TypedDict):
     """Optional question guidance."""
 
+    content: str
+
+
+class QuestionDefinition(TypedDict):
+    """Optional definition displayed with an ONS question."""
+
+    title: str
     content: str
 
 
@@ -149,6 +157,7 @@ class QuestionContent(TypedDict):
 
     text: str
     description: NotRequired[str]
+    definition: NotRequired[QuestionDefinition]
     guidance: NotRequired[QuestionGuidance]
     justification: NotRequired[QuestionJustification]
     placeholders: NotRequired[list[QuestionPlaceholder]]
