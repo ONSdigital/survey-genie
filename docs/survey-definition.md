@@ -272,6 +272,25 @@ A question can include a response from an earlier question.
 
 The source must be a preceding question. When its response is unavailable, the journey redirects to that earlier question.
 
+### Previous question navigation
+
+Question pages follow the ONS question pattern and display a `Previous` link
+when the respondent has previously answered another question in the same
+section.
+
+The first survey question and first feedback question do not display a
+`Previous` link.
+
+`Previous` returns to the most recently answered question in the current
+journey, including when conditional routing has skipped questions.
+
+When a respondent selects `Previous`, any saved answer for the current
+question is discarded. If they return to that question later, they must
+answer it again.
+
+Survey and feedback navigation are separate. The first feedback question
+does not provide a `Previous` link back to the survey.
+
 ### Guidance page
 
 ```json
