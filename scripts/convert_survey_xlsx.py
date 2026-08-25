@@ -390,6 +390,7 @@ def _build_question_page(
     Raises:
         SurveyWorkbookError: If question configuration is invalid.
     """
+    # pylint: disable=too-many-locals,too-many-branches
     answer_type = _required_string(row, "answer_type", "Pages")
     if answer_type not in VALID_ANSWER_TYPES:
         raise _row_error(
@@ -399,9 +400,66 @@ def _build_question_page(
         )
 
     question: dict[str, object] = {"text": _required_string(row, "question_text", "Pages")}
+
     description = _optional_string(row, "question_description")
     if description:
         question["description"] = description
+
+    definition_title = _optional_string(
+        row,
+        "question_definition_title",
+    )
+    definition_content = _optional_string(
+        row,
+        "question_definition_content",
+    )
+
+    if definition_title or definition_content:
+        if not definition_title or not definition_content:
+            raise _row_error(
+                row,
+                "Pages",
+                "question_definition_title and "
+                "question_definition_content must both be provided",
+            )
+
+        question["definition"] = {
+            "title": definition_title,
+            "content": definition_content,
+        }
+
+    guidance = _optional_string(
+        row,
+        "question_guidance",
+    )
+
+    if guidance:
+        question["guidance"] = {
+            "content": guidance,
+        }
+
+    justification_title = _optional_string(
+        row,
+        "question_justification_title",
+    )
+    justification_content = _optional_string(
+        row,
+        "question_justification_content",
+    )
+
+    if justification_title or justification_content:
+        if not justification_title or not justification_content:
+            raise _row_error(
+                row,
+                "Pages",
+                "question_justification_title and "
+                "question_justification_content must both be provided",
+            )
+
+        question["justification"] = {
+            "title": justification_title,
+            "content": justification_content,
+        }
 
     answer: dict[str, object] = {
         "type": answer_type,
