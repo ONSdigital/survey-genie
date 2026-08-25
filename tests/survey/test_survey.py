@@ -5,6 +5,7 @@ from typing import cast
 
 from flask import Flask
 from flask.testing import FlaskClient
+import pytest
 
 from survey_genie.auth.decorators import SESSION_USER_KEY
 from survey_genie.routes.survey import SURVEY_RESPONSES_KEY
@@ -588,3 +589,325 @@ def test_feedback_radio_routes_to_target_question(
 
     assert response.status_code == HTTPStatus.FOUND
     assert response.headers["Location"].endswith("/start/feedback/fq3")
+
+
+def test_question_renders_definition(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that a configured question definition is rendered."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    question = survey_definition["survey_pages"]["pages"][1]["question"]
+    question["definition"] = {
+        "title": "What we mean by job",
+        "content": "A job is paid employment or self-employment.",
+    }
+
+    response = client.get("/start/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "What we mean by job" in response_text
+    assert "A job is paid employment or self-employment." in response_text
+
+
+@pytest.mark.parametrize(
+    "multiline",
+    [
+        True,
+        False,
+    ],
+)
+def test_text_question_renders_answer_label(
+    app: Flask,
+    client: FlaskClient,
+    multiline: bool,
+) -> None:
+    """Test that text answer labels render for input and textarea components."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    answer = survey_definition["survey_pages"]["pages"][1]["answer"]
+
+    assert answer["type"] == "text"
+
+    answer["label"] = "Job title"
+    answer["multiline"] = multiline
+
+    response = client.get("/start/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Job title" in response_text
+
+
+def test_first_question_does_not_render_previous_link(
+    client: FlaskClient,
+) -> None:
+    """Test that the first survey question has no previous link."""
+    _authenticate(client)
+
+    response = client.get("/start/questions/q0")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/start/questions/q0/previous" not in response_text
+
+
+def test_question_renders_previous_link(
+    client: FlaskClient,
+) -> None:
+    """Test that a later survey question has a previous link."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.get("/start/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/start/questions/q1/previous" in response_text
+    assert "Previous" in response_text
+
+
+def test_previous_question_discards_current_response(
+    client: FlaskClient,
+) -> None:
+    """Test that going back discards the current survey response."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            },
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Teacher",
+            },
+        }
+
+    response = client.get("/start/questions/q1/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/questions/q0")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert "q0" in responses
+    assert "q1" not in responses
+
+
+def test_previous_link_remains_after_survey_validation_error(
+    client: FlaskClient,
+) -> None:
+    """Test that previous remains available after survey validation fails."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.post(
+        "/start/questions/q1",
+        data={"job-title": ""},
+    )
+
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/start/questions/q1/previous" in response_text
+
+
+def test_previous_link_remains_after_feedback_validation_error(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that previous remains available after feedback validation fails."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+
+    second_feedback_page = survey_feedback["pages"][1]
+    assert second_feedback_page["page_id"] == "fq2"
+    second_feedback_page["answer"]["required"] = True
+
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            }
+        }
+
+    response = client.post(
+        "/start/feedback/fq2",
+        data={"other-feedback": ""},
+    )
+
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/start/feedback/fq2/previous" in response_text
+
+
+def test_first_feedback_question_does_not_render_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that the first feedback question has no previous link."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.get("/start/feedback/fq1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/start/feedback/fq1/previous" not in response_text
+
+
+def test_feedback_question_renders_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that a later feedback question renders a previous link."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            }
+        }
+
+    response = client.get("/start/feedback/fq2")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/start/feedback/fq2/previous" in response_text
+    assert "Previous" in response_text
+
+
+def test_previous_feedback_question_discards_current_response(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that previous discards the current feedback response."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            },
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "More guidance would help",
+            },
+        }
+
+    response = client.get("/start/feedback/fq2/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/feedback/fq1")
+
+    with client.session_transaction() as flask_session:
+        feedback_responses = flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]
+
+    assert "fq1" in feedback_responses
+    assert "fq2" not in feedback_responses
+
+
+def test_previous_question_returns_to_answered_question_after_skip(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that previous follows the answered journey after a routing skip."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    first_page = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    answer = cast(
+        dict[str, object],
+        first_page["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[0]["target_page_id"] = "q2"
+
+    response = client.post(
+        "/start/questions/q0",
+        data={"age-range": "16-24"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/questions/q2")
+
+    response = client.get("/start/questions/q2/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/start/questions/q0")

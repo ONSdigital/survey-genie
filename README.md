@@ -116,6 +116,8 @@ Supported answer types for survey questions:
 
 - `radio`
 - `text`, rendered as either a single-line input or multiline textarea
+- text answers may define an optional `label`
+- questions may define optional `definition`, `guidance` and `justification` content
 
 Supported feedback pages:
 

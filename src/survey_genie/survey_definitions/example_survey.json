@@ -376,6 +376,7 @@
         "answer": {
           "type": "text",
           "name": "job-title",
+          "label": "Job title",
           "required": true,
           "multiline": true,
           "rows": 5,

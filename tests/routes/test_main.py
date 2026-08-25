@@ -178,3 +178,23 @@ def test_index_links_to_starting_guidance_page_when_intro_is_disabled(
     assert response.status_code == HTTPStatus.OK
     assert "Start survey" in response_text
     assert 'href="/start/guidance/guidance"' in response_text
+
+
+def test_index_uses_survey_title_as_service_name(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that the survey title is used as the service name."""
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_title"] = "Example survey title"
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get("/")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Example survey title" in response.get_data(as_text=True)

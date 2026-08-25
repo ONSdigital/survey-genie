@@ -422,6 +422,13 @@
           "text": "At your main job, describe the main activity of the business or organisation",
           "description": "For example, elderly residential care, food and beverage manufacturing or primary education",
           "placeholders": [],
+          "definition": {
+            "title": "What we mean by 'job'",
+            "content": "Some definition text here<ul><li>Point 1</li><li>Point 2</li></ul>"
+          },
+          "guidance": {
+            "content": "Some guidance text here<ul><li>Point 1</li><li>Point 2</li></ul>"
+          },
           "justification": {
             "title": "Why we ask this question",
             "content": "Placeholder text"

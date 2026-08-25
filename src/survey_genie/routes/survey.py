@@ -142,6 +142,21 @@ def _get_guidance_page(
     return page
 
 
+def _get_previous_response_page_id(
+    page_id: str,
+    responses: SurveyResponses | FeedbackResponses,
+) -> str | None:
+    """Return the most recently answered question before the current page."""
+    answered_page_ids = [
+        answered_page_id for answered_page_id in responses if answered_page_id != page_id
+    ]
+
+    if not answered_page_ids:
+        return None
+
+    return answered_page_ids[-1]
+
+
 def _get_next_survey_page(
     page_id: str,
 ) -> SurveyPage | None:
@@ -356,6 +371,35 @@ def _get_next_survey_url(
     return url_for("survey.complete")
 
 
+def _get_previous_url(
+    page_id: str,
+    responses: SurveyResponses | FeedbackResponses,
+    endpoint: str,
+) -> str | None:
+    """Return the previous navigation URL when a prior response exists.
+
+    Args:
+        page_id: Current question page identifier.
+        responses: Responses stored for the current journey.
+        endpoint: Flask endpoint used for previous navigation.
+
+    Returns:
+        str | None: Previous navigation URL, or None for the first question.
+    """
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        return None
+
+    return url_for(
+        endpoint,
+        page_id=page_id,
+    )
+
+
 def _get_feedback_page(page_id: str) -> FeedbackPage:
     """Return a feedback page by identifier.
 
@@ -438,11 +482,21 @@ def question(page_id: str) -> ResponseReturnValue:
     Returns:
         ResponseReturnValue: Rendered ONS question page.
     """
+    logger.debug("Rendering question page_id=%s", page_id)
     page = _get_question_page(page_id)
     responses = cast(
         SurveyResponses,
         session.get(SURVEY_RESPONSES_KEY, {}),
     )
+
+    # Get the previous page in case the user wants to go back
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_question",
+    )
+
+    logger.info("question previous_url: %s", previous_url)
 
     try:
         question_text = _resolve_page_question_text(
@@ -481,7 +535,39 @@ def question(page_id: str) -> ResponseReturnValue:
         saved_value=saved_value,
         not_listed_selected=not_listed_selected,
         form_action=url_for("survey.save_response", page_id=page_id),
+        previous_url=previous_url,
         error_message=None,
+    )
+
+
+@survey_blueprint.get("/questions/<page_id>/previous")
+@login_required
+def previous_question(page_id: str) -> ResponseReturnValue:
+    """Return to the previous survey question and discard the current answer."""
+    _get_question_page(page_id)
+
+    responses = cast(
+        SurveyResponses,
+        session.get(SURVEY_RESPONSES_KEY, {}),
+    )
+
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        abort(HTTPStatus.NOT_FOUND)
+
+    updated_responses = dict(responses)
+    updated_responses.pop(page_id, None)
+    session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    return redirect(
+        url_for(
+            "survey.question",
+            page_id=previous_page_id,
+        )
     )
 
 
@@ -502,6 +588,13 @@ def save_response(page_id: str) -> ResponseReturnValue:
     responses = cast(
         SurveyResponses,
         session.get(SURVEY_RESPONSES_KEY, {}),
+    )
+
+    # Get the previous page in case the user wants to go back
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_question",
     )
 
     try:
@@ -540,6 +633,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 saved_value=value,
                 not_listed_selected=not_listed_selected,
                 form_action=url_for("survey.save_response", page_id=page_id),
+                previous_url=previous_url,
                 error_message="Enter an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -584,6 +678,7 @@ def feedback_question(
     Returns:
         ResponseReturnValue: Rendered feedback question page.
     """
+
     page = _get_feedback_page(page_id)
     responses = cast(
         FeedbackResponses,
@@ -592,6 +687,16 @@ def feedback_question(
             {},
         ),
     )
+
+    # Get the previous page in case the user wants to go back
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_feedback_question",
+    )
+
+    logger.info("feedback previous_url: %s", previous_url)
+
     saved_response = responses.get(page_id)
     saved_value = saved_response["value"] if saved_response is not None else ""
 
@@ -604,7 +709,38 @@ def feedback_question(
             "survey.save_feedback_response",
             page_id=page_id,
         ),
+        previous_url=previous_url,
         error_message=None,
+    )
+
+
+@survey_blueprint.get("/feedback/<page_id>/previous")
+@login_required
+def previous_feedback_question(page_id: str) -> ResponseReturnValue:
+    """Return to the previous feedback question and discard the current answer."""
+    _get_feedback_page(page_id)
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(SURVEY_FEEDBACK_RESPONSES_KEY, {}),
+    )
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        abort(HTTPStatus.NOT_FOUND)
+
+    updated_responses = dict(responses)
+    updated_responses.pop(page_id, None)
+    session[SURVEY_FEEDBACK_RESPONSES_KEY] = updated_responses
+
+    return redirect(
+        url_for(
+            "survey.feedback_question",
+            page_id=previous_page_id,
+        )
     )
 
 
@@ -625,6 +761,21 @@ def save_feedback_response(
     """
     page = _get_feedback_page(page_id)
     answer = page["answer"]
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        ),
+    )
+
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_feedback_question",
+    )
+
     value = request.form.get(
         answer["name"],
         "",
@@ -641,6 +792,7 @@ def save_feedback_response(
                     "survey.save_feedback_response",
                     page_id=page_id,
                 ),
+                previous_url=previous_url,
                 error_message="Select an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -652,13 +804,6 @@ def save_feedback_response(
         if value not in allowed_values:
             abort(HTTPStatus.BAD_REQUEST)
 
-    responses = cast(
-        FeedbackResponses,
-        session.get(
-            SURVEY_FEEDBACK_RESPONSES_KEY,
-            {},
-        ),
-    )
     updated_responses = dict(responses)
 
     if value:
