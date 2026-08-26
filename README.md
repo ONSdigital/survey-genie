@@ -47,7 +47,7 @@ Useful Makefile targets:
 make help                 # list available targets
 make install              # install Poetry dependencies
 make templates            # download ONS Design System templates
-make provision-user       # create a local users.json
+make manage-users         # user management help
 make run                  # run Flask in debug mode
 make run-docs             # serve the MkDocs documentation
 make all-tests            # run tests with coverage
@@ -171,3 +171,92 @@ The detailed documentation is under [`docs/`](docs/index.md).
 make all-tests
 make check-python-nofix
 ```
+
+## Manage local users
+
+Authentication users are stored in `users.json`. The management script can add,
+update, or delete individual users while preserving all other user records.
+
+### Add a user
+
+```bash
+poetry run python scripts/provision_users.py add \
+  --username "user@example.com" \
+  --output users.json
+```
+You will be prompted for the user's password. The password is hashed before being
+written to `users.json`.
+
+If `users.json` does not exist, it will be created.
+
+Attempting to add a username that already exists will fail. Use `update` to change
+an existing user's password.
+
+### Change a user password
+
+```bash
+poetry run python scripts/provision_users.py update \
+  --username "user@example.com" \
+  --output users.json
+```
+
+### Delete a user
+
+```bash
+poetry run python scripts/provision_users.py delete \
+  --username "user@example.com" \
+  --output users.json
+```
+
+### Users.json
+
+The generated file has this shape:
+
+```json
+{
+  "users": [
+    {
+      "username": "user@example.com",
+      "password_hash": "scrypt:..." # pragma: allowlist secret
+    }
+  ]
+}
+```
+
+Passwords can also be supplied with `--password`, although interactive entry is
+preferred because it avoids storing the plaintext password in shell history.
+
+## Manging users in GCS
+
+The app can load `users.json` from GCS when deployed to Cloud Run.
+
+**Warning:** When using the script to connect to GCS, ensure the local `users.json` contains the current contents of the GCS object before making changes. The complete local file is uploaded after the requested change.
+
+First create and upload the file:
+
+```bash
+poetry run python scripts/provision_users.py add \
+  --username "user@example.com" \
+  --output users.json \
+  --bucket "YOUR_AUTH_BUCKET" \
+  --blob "users.json"
+```
+
+For an encrypted auth file using a customer-managed Cloud KMS key, add:
+
+```bash
+  --kms-key-name "projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY_NAME"  # pragma: allowlist secret
+```
+
+Cloud Storage encrypts data at rest by default; using `--kms-key-name` makes the object use your customer-managed key.
+
+Set these Cloud Run environment variables:
+
+```text
+AUTH_MODE=gcs
+GCP_AUTH_BUCKET_NAME=YOUR_AUTH_BUCKET
+GCP_AUTH_BLOB_NAME=users.json
+SESSION_COOKIE_SECURE=true
+```
+
+The Cloud Run service account needs permission to read the object, for example `roles/storage.objectViewer` scoped to the bucket.
