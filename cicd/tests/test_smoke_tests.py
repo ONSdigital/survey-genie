@@ -26,7 +26,7 @@ class TestGenieUI:  # pylint: disable=too-few-public-methods
         raise ValueError("UI_SA_ID_TOKEN environment variable is not set.")
 
     def test_survey_assist_api_status(self) -> None:
-        """Test GENIE UI returns successful /meta response (via proxy API)."""
+        """Test GENIE UI returns successful response (via proxy API)."""
         endpoint = f"{self.url_base}/genie-ui/{self.target_environment}"
 
         print(f"Calling {endpoint}...")

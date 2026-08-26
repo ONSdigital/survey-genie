@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script is only intended for use in the Sandbox environment.
 #

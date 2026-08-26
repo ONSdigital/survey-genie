@@ -8,13 +8,13 @@
 # UI_SA_ID_TOKEN - A valid Google Identity Token generated from your credentials (assuming you're running locally)
 #
 #
-# Expected parameter: [sandbox|dev]
+# Expected parameter: [sandbox|dev|preprod]
 #
 # Example ./run_smoke_tests.sh dev
 
 # Please set the environment variable CICD_PROJECT_ID i.e. export CICD_PROJECT_ID=
 
-if [[ ! -v CICD_PROJECT_ID ]]; then
+if [[ -z "${CICD_PROJECT_ID:-}" ]]; then
    echo "Please set the environment variable CICD_PROJECT_ID i.e. export CICD_PROJECT_ID="
    exit 1
 fi
@@ -28,8 +28,8 @@ else
 fi
 
 if [[ -z "${GENIE_UI_URL}" ]]; then
-    echo Environment variable GENIE_UI_URL was not set, getting $1 url from parameter store:
-    GENIE_UI_URL=$(gcloud parametermanager parameters versions describe $1 --parameter=infra-test-config --location=global --project $CICD_PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
+    echo Environment variable GENIE_UI_URL was not set, getting ${1} url from parameter store:
+    GENIE_UI_URL=$(gcloud parametermanager parameters versions describe ${1} --parameter=infra-test-config --location=global --project ${CICD_PROJECT_ID} --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
     export GENIE_UI_URL
     echo "$GENIE_UI_URL"
 else
